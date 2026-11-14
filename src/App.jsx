@@ -92,23 +92,20 @@ export default function App() {
         )}
       </div>
 
-      <div className="contenedor-tableros" style={{ display: 'flex', gap: '40px', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <div>
-          <h3>Tu Tablero</h3>
-          {flotaJugador.length > 0 && (
-            <TableroJugador 
-              tablero={flotaJugador} 
-              barcos={barcosJugador}
-              ataquesRecibidos={disparosIAEnJugador} 
-              random={reiniciarJuegoCompleto} 
-              onMoverBarco={manejarMoverBarco}
-              puedeMover={turno === 'jugador' && estadoPartida === 'jugando' && !partidaIniciada}
-            />
-          )}
-        </div>
+        <div className="contenedor-tableros">
+        {flotaJugador.length > 0 && (
+          <TableroJugador 
+            tablero={flotaJugador} 
+            barcos={barcosJugador}
+            ataquesRecibidos={disparosIAEnJugador} 
+            random={reiniciarJuegoCompleto}
+            onMoverBarco={manejarMoverBarco}
+            puedeMover={!partidaIniciada && estadoPartida === 'jugando'}
+          />
+        )}
 
-        <div>
-          <h3>Tablero Enemigo</h3>
+       <div className="tarjeta-enemigo">
+          <h2 className="subtitulo-panel">Tablero Enemigo</h2>
           {flotaEnemigaOculta.length > 0 && (
             <TableroEnemigo 
               flotaSecreta={flotaEnemigaOculta} 
