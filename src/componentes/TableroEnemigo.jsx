@@ -3,7 +3,7 @@ import { TAMANIO } from '../Logica/barcos';
 import { ejecutarSimulacionProbabilistica } from '../Logica/algoritmoProbabilistico';
 import { verificarVictoria } from '../Logica/juego';
 
-export default function TableroEnemigo({ flotaSecreta, onReiniciar }) {
+export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador, onDispararRealizado }) {
   const [tableroEstado, setTableroEstado] = useState(
     Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null))
   );
@@ -35,7 +35,8 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar }) {
   };
 
   const handleDisparar = (fila, col) => {
-    if (juegoTerminado || tableroEstado[fila][col] !== null) return;
+    // Validar si es el turno del jugador, si el juego terminó o si la celda ya fue atacada
+    if (!turnoJugador || juegoTerminado || tableroEstado[fila][col] !== null) return;
 
     const hayBarco = flotaSecreta[fila][col].barcoId !== null;
     const resultadoDisparo = hayBarco ? 'impacto' : 'agua';
@@ -52,13 +53,19 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar }) {
     setTableroEstado(nuevoTablero);
 
     // Validar si con este disparo se ganó la partida
-    if (verificarVictoria(nuevoTablero, flotaSecreta)) {
+    const ganado = verificarVictoria(nuevoTablero, flotaSecreta);
+    if (ganado) {
       setJuegoTerminado(true);
+    }
+
+    // Notificar a App.jsx para que active el turno de la IA
+    if (onDispararRealizado) {
+      onDispararRealizado(nuevoTablero, ganado);
     }
   };
 
   const usarRecomendacion = () => {
-    if (resultadoAlgoritmo && resultadoAlgoritmo.mejorCelda && !juegoTerminado) {
+    if (turnoJugador && resultadoAlgoritmo && resultadoAlgoritmo.mejorCelda && !juegoTerminado) {
       const { fila, col } = resultadoAlgoritmo.mejorCelda;
       handleDisparar(fila, col);
     }
@@ -89,7 +96,7 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar }) {
               Tiempo: {resultadoAlgoritmo.tiempoEjecucion.toFixed(2)} ms
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
-              <button className="btn-recomendar" onClick={usarRecomendacion}>
+              <button className="btn-recomendar" onClick={usarRecomendacion} disabled={!turnoJugador}>
                 Disparar a Recomendación
               </button>
               <button className="btn-sim" onClick={onReiniciar}>
@@ -127,7 +134,7 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar }) {
                 <div
                   key={`${fIdx}-${cIdx}`}
                   className={`celda celda-enemigo ${esRecomendada ? 'celda-recomendada' : ''}`}
-                  style={{ backgroundColor: fondoDinamico, cursor: juegoTerminado ? 'default' : 'pointer' }}
+                  style={{ backgroundColor: fondoDinamico, cursor: (!turnoJugador || juegoTerminado) ? 'not-allowed' : 'pointer' }}
                   onClick={() => handleDisparar(fIdx, cIdx)}
                   title={`Probabilidad: ${(prob * 100).toFixed(1)}%`}
                 >
