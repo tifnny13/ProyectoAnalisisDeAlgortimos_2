@@ -1,0 +1,121 @@
+import { useState, useEffect } from 'react';
+import { crearTablero } from './Logica/tablero';
+import { colocarFlotaAleatoria, moverBarco } from './Logica/colocacionBarcos';
+import { verificarVictoria } from './Logica/juego';
+import { TAMANIO } from './Logica/barcos';
+import { calcularAtaqueIA } from './Logica/jugadorIA'; 
+import TableroJugador from './componentes/TableroJugador';
+import TableroEnemigo from './componentes/TableroEnemigo';
+import './App.css';
+
+export default function App() {
+  const [flotaJugador, setFlotaJugador] = useState([]);
+  const [flotaEnemigaOculta, setFlotaEnemigaOculta] = useState([]);
+
+  const [disparosIAEnJugador, setDisparosIAEnJugador] = useState(
+    Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null))
+  );
+
+  const [turno, setTurno] = useState('jugador');
+  const [estadoPartida, setEstadoPartida] = useState('jugando');
+  const [barcosJugador, setBarcosJugador] = useState([]);
+  const [partidaIniciada, setPartidaIniciada] = useState(false);
+
+  useEffect(() => {
+    reiniciarJuegoCompleto();
+  }, []);
+
+  const reiniciarJuegoCompleto = () => {
+    const nuevoJugador = crearTablero();
+    const listaBarcos = colocarFlotaAleatoria(nuevoJugador);
+    setFlotaJugador(nuevoJugador);
+    setBarcosJugador(listaBarcos);
+
+    const nuevoEnemigo = crearTablero();
+    colocarFlotaAleatoria(nuevoEnemigo);
+    setFlotaEnemigaOculta(nuevoEnemigo);
+
+    setDisparosIAEnJugador(Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null)));
+    setTurno('jugador');
+    setEstadoPartida('jugando');
+    setPartidaIniciada(false);
+  };
+
+  // Turno automático de la IA
+  useEffect(() => {
+    if (turno === 'ia' && estadoPartida === 'jugando') {
+      const timer = setTimeout(() => {
+        const { nuevoDisparosIA } = calcularAtaqueIA(disparosIAEnJugador, flotaJugador);
+        
+        setDisparosIAEnJugador(nuevoDisparosIA);
+
+        if (verificarVictoria(nuevoDisparosIA, flotaJugador)) {
+          setEstadoPartida('victoria_ia');
+        } else {
+          setTurno('jugador');
+        }
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [turno, estadoPartida]);
+
+  const handleDisparoJugador = (nuevoTableroEnemigo, juegoTerminadoEnemigo) => {
+    setPartidaIniciada(true);
+    if (juegoTerminadoEnemigo) {
+      setEstadoPartida('victoria_jugador');
+    } else {
+      setTurno('ia');
+    }
+  };
+
+  const manejarMoverBarco = (barcoId, nuevaFila, nuevaCol, nuevaOrientacion) => {
+  if (partidaIniciada) return;
+
+  const copiaTablero = flotaJugador.map(fila => fila.map(celda => ({ ...celda })));
+  const copiaBarcos = barcosJugador.map(b => ({ ...b, celdas: [...b.celdas] }));
+
+  if (moverBarco(copiaTablero, copiaBarcos, barcoId, nuevaFila, nuevaCol, nuevaOrientacion)) {
+    setFlotaJugador(copiaTablero);
+    setBarcosJugador(copiaBarcos);
+  }
+};
+
+  return (
+    <div className="pantalla">
+      <h1 className="titulo">⚓ Batalla Naval Probabilística ⚓</h1>
+
+      <div className="indicador-turno" style={{ textAlign: 'center', marginBottom: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
+        {estadoPartida === 'victoria_jugador' && <span style={{ color: '#22c55e' }}>¡VICTORIA! Has derrotado a la IA.</span>}
+        {estadoPartida === 'victoria_ia' && <span style={{ color: '#ef4444' }}>¡DERROTA! La IA ha hundido tu flota.</span>}
+        {estadoPartida === 'jugando' && (
+          <span>Turno de: {turno === 'jugador' ? 'Tu turno (Ataca al enemigo)' : 'La IA está pensando su ataque...'}</span>
+        )}
+      </div>
+
+        <div className="contenedor-tableros">
+        {flotaJugador.length > 0 && (
+          <TableroJugador 
+            tablero={flotaJugador} 
+            barcos={barcosJugador}
+            ataquesRecibidos={disparosIAEnJugador} 
+            random={reiniciarJuegoCompleto}
+            onMoverBarco={manejarMoverBarco}
+            puedeMover={!partidaIniciada && estadoPartida === 'jugando'}
+          />
+        )}
+
+       <div className="tarjeta-enemigo">
+          <h2 className="subtitulo-panel">Tablero Enemigo</h2>
+          {flotaEnemigaOculta.length > 0 && (
+            <TableroEnemigo 
+              flotaSecreta={flotaEnemigaOculta} 
+              onReiniciar={reiniciarJuegoCompleto}
+              turnoJugador={turno === 'jugador' && estadoPartida === 'jugando'}
+              onDispararRealizado={handleDisparoJugador}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
