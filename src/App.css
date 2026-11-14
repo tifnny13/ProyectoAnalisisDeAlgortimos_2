@@ -240,3 +240,18 @@ body {
   50% { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
+
+.celda-seleccionada {
+  outline: 2.5px solid #ffffff;
+  outline-offset: -2px;
+  transform: scale(1.06);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.celda-agua {
+  background-color: #64748b !important;
+}
+
+.celda-impacto {
+  background-color: #ef4444 !important;
+}

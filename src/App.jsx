@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { crearTablero } from './Logica/tablero';
-import { colocarFlotaAleatoria } from './Logica/colocacionBarcos';
+import { colocarFlotaAleatoria, moverBarco } from './Logica/colocacionBarcos';
 import { verificarVictoria } from './Logica/juego';
 import { TAMANIO } from './Logica/barcos';
 import { calcularAtaqueIA } from './Logica/jugadorIA'; 
@@ -18,6 +18,8 @@ export default function App() {
 
   const [turno, setTurno] = useState('jugador');
   const [estadoPartida, setEstadoPartida] = useState('jugando');
+  const [barcosJugador, setBarcosJugador] = useState([]);
+  const [partidaIniciada, setPartidaIniciada] = useState(false);
 
   useEffect(() => {
     reiniciarJuegoCompleto();
@@ -25,8 +27,9 @@ export default function App() {
 
   const reiniciarJuegoCompleto = () => {
     const nuevoJugador = crearTablero();
-    colocarFlotaAleatoria(nuevoJugador);
+    const listaBarcos = colocarFlotaAleatoria(nuevoJugador);
     setFlotaJugador(nuevoJugador);
+    setBarcosJugador(listaBarcos);
 
     const nuevoEnemigo = crearTablero();
     colocarFlotaAleatoria(nuevoEnemigo);
@@ -35,6 +38,7 @@ export default function App() {
     setDisparosIAEnJugador(Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null)));
     setTurno('jugador');
     setEstadoPartida('jugando');
+    setPartidaIniciada(false);
   };
 
   // Turno automático de la IA
@@ -56,12 +60,25 @@ export default function App() {
   }, [turno, estadoPartida]);
 
   const handleDisparoJugador = (nuevoTableroEnemigo, juegoTerminadoEnemigo) => {
+    setPartidaIniciada(true);
     if (juegoTerminadoEnemigo) {
       setEstadoPartida('victoria_jugador');
     } else {
       setTurno('ia');
     }
   };
+
+  const manejarMoverBarco = (barcoId, nuevaFila, nuevaCol, nuevaOrientacion) => {
+  if (partidaIniciada) return;
+
+  const copiaTablero = flotaJugador.map(fila => fila.map(celda => ({ ...celda })));
+  const copiaBarcos = barcosJugador.map(b => ({ ...b, celdas: [...b.celdas] }));
+
+  if (moverBarco(copiaTablero, copiaBarcos, barcoId, nuevaFila, nuevaCol, nuevaOrientacion)) {
+    setFlotaJugador(copiaTablero);
+    setBarcosJugador(copiaBarcos);
+  }
+};
 
   return (
     <div className="pantalla">
@@ -81,8 +98,11 @@ export default function App() {
           {flotaJugador.length > 0 && (
             <TableroJugador 
               tablero={flotaJugador} 
+              barcos={barcosJugador}
               ataquesRecibidos={disparosIAEnJugador} 
               random={reiniciarJuegoCompleto} 
+              onMoverBarco={manejarMoverBarco}
+              puedeMover={turno === 'jugador' && estadoPartida === 'jugando' && !partidaIniciada}
             />
           )}
         </div>
