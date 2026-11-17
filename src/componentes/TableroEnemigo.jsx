@@ -38,10 +38,11 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
     // Validar si es el turno del jugador, si el juego terminó o si la celda ya fue atacada
     if (!turnoJugador || juegoTerminado || tableroEstado[fila][col] !== null) return;
 
-    const hayBarco = flotaSecreta[fila][col].barcoId !== null;
+    const barcoId = flotaSecreta[fila][col].barcoId;
+    const hayBarco = barcoId !== null;
     const resultadoDisparo = hayBarco ? 'impacto' : 'agua';
 
-    const nuevoTablero = tableroEstado.map((f, fIdx) =>
+    let nuevoTablero = tableroEstado.map((f, fIdx) =>
       f.map((c, cIdx) => {
         if (fIdx === fila && cIdx === col) {
           return resultadoDisparo;
@@ -49,6 +50,33 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
         return c;
       })
     );
+
+    // Lógica para detectar si el barco completo fue hundido
+    if (hayBarco) {
+      const celdasBarco = [];
+      for (let f = 0; f < TAMANIO; f++) {
+        for (let c = 0; c < TAMANIO; c++) {
+          if (flotaSecreta[f][c].barcoId === barcoId) {
+            celdasBarco.push({ fila: f, col: c });
+          }
+        }
+      }
+
+      const barcoHundido = celdasBarco.every(
+        (celda) => nuevoTablero[celda.fila][celda.col] === 'impacto'
+      );
+
+      if (barcoHundido) {
+        nuevoTablero = nuevoTablero.map((f, fIdx) =>
+          f.map((c, cIdx) => {
+            const perteneceAlBarco = celdasBarco.some(
+              (celda) => celda.fila === fIdx && celda.col === cIdx
+            );
+            return perteneceAlBarco ? 'hundido' : c;
+          })
+        );
+      }
+    }
 
     setTableroEstado(nuevoTablero);
 
@@ -123,17 +151,23 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
                 resultadoAlgoritmo.mejorCelda.fila === fIdx &&
                 resultadoAlgoritmo.mejorCelda.col === cIdx;
 
+              let clasesCelda = 'celda celda-enemigo';
+              if (esRecomendada) clasesCelda += ' celda-recomendada';
+              if (estadoCelda === 'hundido') clasesCelda += ' celda-hundido';
+
               const fondoDinamico =
                 estadoCelda === 'agua'
                   ? '#64748b'
                   : estadoCelda === 'impacto'
                   ? '#ef4444'
+                  : estadoCelda === 'hundido'
+                  ? '#991b1b'
                   : `rgba(239, 68, 68, ${Math.max(prob * 0.9, 0.05)})`;
 
               return (
                 <div
                   key={`${fIdx}-${cIdx}`}
-                  className={`celda celda-enemigo ${esRecomendada ? 'celda-recomendada' : ''}`}
+                  className={clasesCelda}
                   style={{ backgroundColor: fondoDinamico, cursor: (!turnoJugador || juegoTerminado) ? 'not-allowed' : 'pointer' }}
                   onClick={() => handleDisparar(fIdx, cIdx)}
                   title={`Probabilidad: ${(prob * 100).toFixed(1)}%`}

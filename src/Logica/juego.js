@@ -9,7 +9,8 @@ export function verificarVictoria(tableroEstado, flotaSecreta) {
     for (let c = 0; c < TAMANIO; c++) {
       if (flotaSecreta[f][c].barcoId !== null) {
         totalPartesBarco++;
-        if (tableroEstado[f][c] === 'impacto') {
+        const estadoCelda = tableroEstado[f][c];
+        if (estadoCelda === 'impacto' || estadoCelda === 'hundido') {
           impactosAcumulados++;
         }
       }
