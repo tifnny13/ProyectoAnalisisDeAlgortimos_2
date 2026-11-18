@@ -88,7 +88,7 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
 
     // Notificar a App.jsx para que active el turno de la IA
     if (onDispararRealizado) {
-      onDispararRealizado(nuevoTablero, ganado);
+      onDispararRealizado(nuevoTablero, ganado, resultadoDisparo);
     }
   };
 
