@@ -11,6 +11,7 @@ import './App.css';
 export default function App() {
   const [flotaJugador, setFlotaJugador] = useState([]);
   const [flotaEnemigaOculta, setFlotaEnemigaOculta] = useState([]);
+  const [numSimulaciones, setNumSimulaciones] = useState(1000);
 
   const [disparosIAEnJugador, setDisparosIAEnJugador] = useState(
     Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null))
@@ -197,7 +198,18 @@ export default function App() {
         <div><b>Disparos Jugador:</b> <span style={{ color: '#38bdf8' }}>{estadisticas.disparosJugador}</span> (Aciertos: {estadisticas.impactosJugador} | Fallidos: {estadisticas.fallidosJugador})</div>
         <div><b>Disparos IA:</b> <span style={{ color: '#ef4444' }}>{estadisticas.disparosIA}</span> (Aciertos: {estadisticas.impactosIA} | Fallidos: {estadisticas.fallidosIA})</div>
         <div><b>Tus Barcos:</b> Vivos: <span style={{ color: '#22c55e' }}>{barcosVivosJugador}</span> | Hundidos: <span style={{ color: '#ef4444' }}>{barcosHundidosJugador}</span></div>
-        <div><b>Algoritmo:</b> Heurístico | <b>Config. Válidas:</b> 1</div>
+        <div>
+          <b>Simulaciones: </b>
+          <select 
+            value={numSimulaciones} 
+            onChange={(e) => setNumSimulaciones(Number(e.target.value))}
+            style={{ background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '6px', padding: '2px 6px' }}>
+            <option value={100}>100</option>
+            <option value={1000}>1 000</option>
+            <option value={5000}>5 000</option>
+            <option value={10000}>10 000</option>
+          </select>
+        </div>
       </div>
 
       <div className="indicador-turno" style={{ textAlign: 'center', marginBottom: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
