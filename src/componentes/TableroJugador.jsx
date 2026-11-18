@@ -165,12 +165,35 @@ export default function TableroJugador({ tablero, barcos=[], ataquesRecibidos, r
           <div className="rejilla">
             {tablero.map((fila, f) =>
               fila.map((celda, c) => {
-                const ataqueIA = ataquesRecibidos ? ataquesRecibidos[f][c] : null;
-
                 let clasesCelda = 'celda';
-                if (celda.barcoId) clasesCelda += ` barco-${celda.barcoId}`;
-                if (ataqueIA === 'agua') clasesCelda += ' celda-agua';
-                else if (ataqueIA === 'impacto') clasesCelda += ' celda-impacto';
+                
+                const ataqueIA = ataquesRecibidos ? ataquesRecibidos[f][c] : null;
+                const barcoAsociado = celda.barcoId ? barcos.find(b => b.id === celda.barcoId) : null;
+                
+                // Verificación doble: Comprueba si el barco ya está marcado como hundido 
+                // O si todas las casillas de sus celdas ya registran 'impacto' en la matriz de la IA
+                const estaHundido = barcoAsociado && (
+                  barcoAsociado.hundido || 
+                  barcoAsociado.celdas.every(celdaBarco => {
+                    const fCoord = celdaBarco.fila ?? celdaBarco[0];
+                    const cCoord = celdaBarco.col ?? celdaBarco[1];
+                    return ataquesRecibidos && ataquesRecibidos[fCoord] && ataquesRecibidos[fCoord][cCoord] === 'impacto';
+                  })
+                );
+
+                // Prioridad máxima: Si el barco está hundido, se pinta de hundido
+                if (estaHundido) {
+                  clasesCelda += ' celda-hundido';
+                } else {
+                  if (celda.barcoId) clasesCelda += ` barco-${celda.barcoId}`;
+
+                  if (ataqueIA === 'agua') {
+                    clasesCelda += ' celda-agua';
+                  } else if (ataqueIA === 'impacto') {
+                    clasesCelda += ' celda-impacto';
+                  }
+                }
+
                 if (puedeMover && celda.barcoId && celda.barcoId === seleccionadoId) {
                   clasesCelda += ' celda-seleccionada';
                 }
