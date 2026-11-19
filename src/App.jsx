@@ -60,6 +60,21 @@ export default function App() {
     });
   };
 
+  const [reinicios, setReinicios] = useState(0); //esto reinicia el juego, pero no reinicia laos datos del juego, solo reinicia el tablero y la flota.
+
+  const reiniciarPartida = () => {
+    setBarcosJugador(prev => prev.map(b => ({ ...b, hundido: false })));
+    setDisparosIAEnJugador(Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null)));
+    setTurno('jugador');
+    setEstadoPartida('jugando');
+    setPartidaIniciada(false);
+    setEstadisticas({
+      disparosJugador: 0, impactosJugador: 0, fallidosJugador: 0,
+      disparosIA: 0, impactosIA: 0, fallidosIA: 0,
+    });
+    setReinicios(r => r + 1);
+  };
+
   // Turno automático de la IA
   useEffect(() => {
     if (turno === 'ia' && estadoPartida === 'jugando') {
@@ -236,13 +251,25 @@ export default function App() {
           <h2 className="subtitulo-panel">Tablero Enemigo</h2>
           {flotaEnemigaOculta.length > 0 && (
             <TableroEnemigo 
+              key={reinicios}
               flotaSecreta={flotaEnemigaOculta} 
               onReiniciar={reiniciarJuegoCompleto}
+              onReiniciarPartida={reiniciarPartida}
               turnoJugador={turno === 'jugador' && estadoPartida === 'jugando'}
               onDispararRealizado={handleDispararJugador}
             />
           )}
         </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', marginTop: '24px', marginBottom: '20px' }}>
+        <button className="btn-sim" onClick={reiniciarJuegoCompleto}>
+          Generar Nueva Partida
+        </button>
+        <button className="btn-sim" onClick={reiniciarPartida}>
+          Reiniciar Partida
+        </button>
+
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { TAMANIO } from '../Logica/barcos';
 import { ejecutarSimulacionProbabilistica } from '../Logica/algoritmoProbabilistico';
 import { verificarVictoria } from '../Logica/juego';
 
-export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador, onDispararRealizado }) {
+export default function TableroEnemigo({ flotaSecreta, onReiniciar, onReiniciarPartida, turnoJugador, onDispararRealizado }) {
   const [tableroEstado, setTableroEstado] = useState(
     Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null))
   );
@@ -106,7 +106,7 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
           <h2 style={{ margin: '0 0 8px 0' }}>¡VICTORIA!</h2>
           <p style={{ margin: '0 0 12px 0' }}>¡Has hundido toda la flota enemiga con éxito!</p>
           <button className="btn-recomendar" onClick={onReiniciar}>
-            Reiniciar Partida
+            Generar Nueva Partida
           </button>
         </div>
       ) : (
@@ -126,9 +126,6 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
               <button className="btn-recomendar" onClick={usarRecomendacion} disabled={!turnoJugador}>
                 Disparar a Recomendación
-              </button>
-              <button className="btn-sim" onClick={onReiniciar}>
-                Reiniciar Flota
               </button>
             </div>
           </div>
