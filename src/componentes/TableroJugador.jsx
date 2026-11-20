@@ -2,6 +2,18 @@ import { useState } from 'react';
 import { FLOTA } from '../Logica/barcos';
 import { ORIENTACIONES } from '../Logica/colocacionBarcos';
 
+/**
+ * muestra el tablero del jugador con su flota, permite mover o rotar los barcos antes de iniciar
+ * y pinta los disparos que va recibiendo de la IA (agua, impacto o hundido)
+ *
+ * @param {object} props propiedades del componente
+ * @param {Array<Array<object>>} props.tablero matriz 10x10 con la posición de los barcos del jugador
+ * @param {Array<object>} [props.barcos=[]] lista con la información de cada barco (celdas, orientación y estado)
+ * @param {Array<Array<string|null>>} props.ataquesRecibidos matriz 10x10 con los disparos que ha hecho la IA sobre este tablero
+ * @param {Function} props.random función para acomodar todos los barcos del jugador al azar
+ * @param {Function} props.onMoverBarco callback que valida y actualiza la nueva posición u orientación de un barco
+ * @param {boolean} [props.puedeMover=true] habilita o bloquea mover y rotar barcos (se bloquea cuando inicia la partida)
+ */
 export default function TableroJugador({ tablero, barcos=[], ataquesRecibidos, random, onMoverBarco, puedeMover=true }) {
   // 3 a la izquierda, 2 a la derecha
   const izquierda = FLOTA.slice(0, 3); // Portaaviones, Acorazado, Crucero
@@ -24,6 +36,12 @@ export default function TableroJugador({ tablero, barcos=[], ataquesRecibidos, r
     }
   };
 
+  /**
+   * Selecciona un barco al hacer clic sobre él, o mueve el barco ya seleccionado hacia una casilla libre
+   *
+   * @param {number} f fila de la casilla tocada.
+   * @param {number} c columna de la casilla tocada.
+   */
   const manejarRotar = () => {
     if (!puedeMover || !seleccionadoId || !onMoverBarco) return;
     const barco = barcos.find((b) => b.id === seleccionadoId);
@@ -35,6 +53,7 @@ export default function TableroJugador({ tablero, barcos=[], ataquesRecibidos, r
     onMoverBarco(seleccionadoId, filaInicio, colInicio, nuevaOrientacion);
   };
 
+  /** Gira el barco seleccionado entre las 4 direcciones disponibles (horizontal, vertical y diagonales). */
   const manejarDesplazar = (cambioFila, cambioCol) => {
     if (!puedeMover || !seleccionadoId || !onMoverBarco) return;
     const barco = barcos.find((b) => b.id === seleccionadoId);
@@ -172,7 +191,7 @@ export default function TableroJugador({ tablero, barcos=[], ataquesRecibidos, r
                 const ataqueIA = ataquesRecibidos ? ataquesRecibidos[f][c] : null;
                 const barcoAsociado = celda.barcoId ? barcos.find(b => b.id === celda.barcoId) : null;
                 
-                // Verificación doble: Comprueba si el barco ya está marcado como hundido 
+                // Verificación doble, comprueba si el barco ya está marcado como hundido 
                 // O si todas las casillas de sus celdas ya registran 'impacto' en la matriz de la IA
                 const estaHundido = barcoAsociado && (
                   barcoAsociado.hundido || 
@@ -183,7 +202,7 @@ export default function TableroJugador({ tablero, barcos=[], ataquesRecibidos, r
                   })
                 );
 
-                // Prioridad máxima: Si el barco está hundido, se pinta de hundido
+                // Prioridad máxima, Si el barco está hundido, se pinta de hundido
                 if (estaHundido) {
                   clasesCelda += ' celda-hundido';
                 } else {

@@ -1,10 +1,18 @@
 import { TAMANIO, FLOTA } from './barcos';
 import { ORIENTACIONES, calcularCeldas } from './colocacionBarcos';
-
+/**
+ * Corre la simulación de Monte Carlo para calcular qué tan probable es que haya un barco en cada casilla
+ * Prueba un montón de tableros aleatorios respetando los tiros que ya se hicieron (agua, impactos y hundidos)
+ * y se queda con la casilla libre que más veces salió ocupada
+ *
+ * @param {Array<Array<string|null>>} tableroEstado - Matriz 10x10 con lo que se ve en el tablero enemigo
+ * @param {number} [numSimulaciones=1000] - Cuántas veces se repite la simulación (100, 1000, 5000 o 10000)
+ * @returns {object} Devuelve la matriz de probabilidades, cuántas configuraciones sirvieron, cuánto tardó y la mejor casilla para disparar.
+ */
 export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones = 1000) {
   const tiempoInicio = performance.now();
-  const matrizConteo = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(0));
-  const matrizProbabilidades = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(0));
+  const matrizConteo = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(0)); // contador de cuantas veces cada celda fue ocupada en configuraciones válidas
+  const matrizProbabilidades = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(0));// matriz final de probabilidades para cada celda
 
   // Identificar celdas con impacto activo (que aún no pertenecen a un barco hundido)
   const impactosActivos = [];
@@ -20,7 +28,7 @@ export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones 
 
   // Ejecutar N simulaciones (100, 1000, 5000, 10000)
   for (let sim = 0; sim < numSimulaciones; sim++) {
-    const tableroSimulado = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(false));
+    const tableroSimulado = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(false)); // marca si hay un barco en esa celda en la simulación actual
     let flotaValida = true;
 
     // Intentar colocar los 5 barcos sin superposición y respetando agua/hundidos
@@ -63,7 +71,7 @@ export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones 
       }
     }
 
-    // Verificar que la configuración generada cubra TODOS los impactos activos conocidos
+    // Verificar que la configuración generada cubra todos los impactos activos que ya estan conocidos
     if (flotaValida && impactosActivos.length > 0) {
       for (const coord of impactosActivos) {
         const [f, c] = coord.split(',').map(Number);
@@ -74,7 +82,7 @@ export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones 
       }
     }
 
-    // Si la configuración completa pasó todas las reglas, la contabilizamos
+    // Si la configuración completa pasó todas las reglas la guardamos y contamos las celdas ocupadas
     if (flotaValida) {
       configuracionesValidas++;
       for (let f = 0; f < TAMANIO; f++) {
@@ -87,7 +95,7 @@ export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones 
     }
   }
 
-  // Calcular P(c) = Configuraciones válidas con barco en c / Total configuraciones válidas
+  // Calcular las configuraciones válidas con barco en c / Total configuraciones válidas
   let mejorCelda = { fila: 0, col: 0, prob: -1 };
   const celdasLibres = [];
 

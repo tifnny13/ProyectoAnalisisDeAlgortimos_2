@@ -3,6 +3,20 @@ import { TAMANIO } from '../Logica/barcos';
 import { ejecutarSimulacionProbabilistica } from '../Logica/algoritmoProbabilistico';
 import { verificarVictoria } from '../Logica/juego';
 
+/**
+ * Muestra el tablero enemigo con el mapa de calor de probabilidades,
+ * permite disparar a las casillas y muestra la recomendación de la simulación
+ *
+ * @param {object} props propiedades del componente.
+ * @param {Array<Array<object>>} props.flotaSecreta matriz 10x10 con los barcos ocultos de la IA
+ * @param {Function} props.onReiniciar función para empezar una partida nueva desde cero
+ * @param {Function} [props.onReiniciarPartida] función opcional para reiniciar el estado de la partida
+ * @param {boolean} props.turnoJugador indica si le toca disparar al jugador o esperar a la IA
+ * @param {boolean} [props.partidaIniciada=false] indica si la partida ya comenzó (bloquea disparos antes de iniciar)
+ * @param {number} [props.numSimulaciones=1000] cantidad de simulaciones Monte Carlo que se ejecutan en cada turno
+ * @param {Function} [props.onCambiarSimulaciones] función opcional para cambiar la cantidad de simulaciones (100, 1000, 5000, 10000)
+ * @param {Function} [props.onDispararRealizado] callback que avisa a App.jsx después de disparar para pasar el turno o marcar victoria
+ */
 export default function TableroEnemigo({ flotaSecreta, onReiniciar, onReiniciarPartida, turnoJugador, partidaIniciada = false, numSimulaciones= 1000, onDispararRealizado }) {
   const [tableroEstado, setTableroEstado] = useState(
     Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null))
@@ -34,6 +48,13 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, onReiniciarP
     }, 10);
   };
 
+  /**
+   * Procesa el disparo del jugador en la casilla [fila, col], revisa si hundió un barco
+   * y verifica si con ese tiro se ganó la partida
+   *
+   * @param {number} fila fila atacada (0 a 9)
+   * @param {number} col columna atacada (0 a 9)
+   */
   const handleDisparar = (fila, col) => {
     // Validar si es el turno del jugador, si el juego terminó o si la celda ya fue atacada
     if (!partidaIniciada || !turnoJugador || juegoTerminado || tableroEstado[fila][col] !== null) return;
@@ -42,9 +63,9 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, onReiniciarP
     const hayBarco = barcoId !== null;
     const resultadoDisparo = hayBarco ? 'impacto' : 'agua';
 
-    let nuevoTablero = tableroEstado.map((f, fIdx) =>
+    let nuevoTablero = tableroEstado.map((f, fIdx) => // Actualizar la celda disparada
       f.map((c, cIdx) => {
-        if (fIdx === fila && cIdx === col) {
+        if (fIdx === fila && cIdx === col) { // Marcar la celda disparada con el resultado
           return resultadoDisparo;
         }
         return c;
