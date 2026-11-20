@@ -31,6 +31,8 @@ export default function App() {
     impactosIA: 0,
     fallidosIA: 0,
   });
+  
+  const [historialIA, setHistorialIA] = useState([]);
 
   useEffect(() => {
     reiniciarJuegoCompleto();
@@ -58,6 +60,7 @@ export default function App() {
       impactosIA: 0,
       fallidosIA: 0,
     });
+    setHistorialIA([]);
   };
 
   const [reinicios, setReinicios] = useState(0); //esto reinicia el juego, pero no reinicia laos datos del juego, solo reinicia el tablero y la flota.
@@ -72,6 +75,7 @@ export default function App() {
       disparosJugador: 0, impactosJugador: 0, fallidosJugador: 0,
       disparosIA: 0, impactosIA: 0, fallidosIA: 0,
     });
+    setHistorialIA([]);
     setReinicios(r => r + 1);
   };
 
@@ -82,7 +86,7 @@ export default function App() {
     }
 
     const timer = setTimeout(() => {
-      const { nuevoDisparosIA } = calcularAtaqueIA(disparosIAEnJugador, flotaJugador);
+      const { nuevoDisparosIA, decision } = calcularAtaqueIA(disparosIAEnJugador, flotaJugador, numSimulaciones);
 
       let esImpacto = false;
       let esAgua = false;
@@ -143,6 +147,10 @@ export default function App() {
       }
 
       setDisparosIAEnJugador(nuevoDisparosIA);
+      setHistorialIA(prev => [
+        { turno: prev.length + 1, ...decision },
+        ...prev
+      ]);
       setEstadisticas(prev => ({
         ...prev,
         disparosIA: prev.disparosIA + 1,
@@ -265,6 +273,34 @@ export default function App() {
             />
           )}
         </div>
+      </div>
+
+      <div style={{
+        backgroundColor: '#1e2636',
+        border: '1px solid #334155',
+        borderRadius: '14px',
+        padding: '14px 20px',
+        margin: '18px auto 0 auto',
+        width: '100%',
+        maxWidth: '1180px',
+        boxSizing: 'border-box',
+        fontSize: '13px'
+      }}>
+        <b>Historial de decisiones del agente (IA):</b>
+        {historialIA.length === 0 ? (
+          <div style={{ color: '#94a3b8', marginTop: '6px' }}>Aún no hay ataques registrados por el agente.</div>
+        ) : (
+          <div style={{ maxHeight: '110px', overflowY: 'auto', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {historialIA.map((item) => (
+              <div key={item.turno} style={{ color: '#e2e8f0' }}>
+                <b>Turno #{item.turno}:</b> Atacó <b>{item.coordenada}</b> (Prob: {item.probabilidad}%, Configs. válidas: {item.configuracionesValidas}, Tiempo: {item.tiempo} ms) →{' '}
+                <span style={{ color: item.resultado === 'impacto' ? '#ef4444' : '#94a3b8', fontWeight: 'bold' }}>
+                  {item.resultado.toUpperCase()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {!partidaIniciada && estadoPartida === 'jugando' && (

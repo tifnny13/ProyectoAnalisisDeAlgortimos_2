@@ -121,7 +121,7 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, onReiniciarP
               ({(resultadoAlgoritmo.mejorCelda.prob * 100).toFixed(1)}%)
             </div>
             <div className="txt-secundario">
-              Tiempo: {resultadoAlgoritmo.tiempoEjecucion.toFixed(2)} ms
+              Tiempo: {resultadoAlgoritmo.tiempoEjecucion.toFixed(2)} ms | Configuraciones válidas: {resultadoAlgoritmo.configuracionesValidas} / {numSimulaciones}
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
               <button className="btn-recomendar" onClick={usarRecomendacion} disabled={!partidaIniciada || !turnoJugador}>

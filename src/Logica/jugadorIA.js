@@ -1,10 +1,10 @@
 import { ejecutarSimulacionProbabilistica } from './algoritmoProbabilistico';
 import { TAMANIO } from './barcos';
 
-export function calcularAtaqueIA(disparosIAEnJugador, flotaJugador) {
+export function calcularAtaqueIA(disparosIAEnJugador, flotaJugador, numSimulaciones = 1000) {
   // 1. Análisis probabilístico
-  const resultadoIA = ejecutarSimulacionProbabilistica(disparosIAEnJugador);
-  let { fila, col } = resultadoIA.mejorCelda;
+  const resultadoIA = ejecutarSimulacionProbabilistica(disparosIAEnJugador, numSimulaciones);
+  let { fila, col, prob } = resultadoIA.mejorCelda;
 
   // 2. Validación de seguridad para evitar celdas repetidas
   if (disparosIAEnJugador[fila][col] !== null) {
@@ -14,6 +14,7 @@ export function calcularAtaqueIA(disparosIAEnJugador, flotaJugador) {
         if (disparosIAEnJugador[f][c] === null) {
           fila = f;
           col = c;
+          prob = 0;
           encontrada = true;
         }
       }
@@ -29,5 +30,16 @@ export function calcularAtaqueIA(disparosIAEnJugador, flotaJugador) {
     f.map((c, cIdx) => (fIdx === fila && cIdx === col ? resultadoDisparo : c))
   );
 
-  return { nuevoDisparosIA };
+  const coordenada = `${String.fromCharCode(65 + fila)}${col + 1}`;
+
+  return {
+    nuevoDisparosIA,
+    decision: {
+      coordenada,
+      probabilidad: (prob * 100).toFixed(1),
+      resultado: resultadoDisparo,
+      configuracionesValidas: resultadoIA.configuracionesValidas,
+      tiempo: resultadoIA.tiempoEjecucion.toFixed(2),
+    },
+  };
 }
