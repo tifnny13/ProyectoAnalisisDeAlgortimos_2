@@ -1,6 +1,11 @@
 import { TAMANIO } from './barcos';
-
-// Valida si todos los barcos de la flota secreta han sido destruidos por completo
+/**
+ * // Valida si todos los barcos de la flota secreta han sido destruidos por completo para asi determinar si hay  ganador
+ *
+ * @param {Array<Array<string|null>>} tableroEstado matriz 10x10 con los disparos hechos (agua, impacto, hundido o null)
+ * @param {Array<Array<object>>} flotaSecreta matriz 10x10 con la ubicación real de los barcos
+ * @returns {boolean} True si todas las casillas con barco ya recibieron disparo, y false si todavía queda alguna viva
+ */
 export function verificarVictoria(tableroEstado, flotaSecreta) {
   let totalPartesBarco = 0;
   let impactosAcumulados = 0;

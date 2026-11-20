@@ -1,6 +1,10 @@
 import { TAMANIO, ESTADOS } from './barcos';
 
-//crea el tablero 
+/**
+ * Crea una matriz vacía de 10x10 casillas (el tablero) lista para empezar una partida
+ *
+ * @returns {Array<Array<{ fila: number, col: number, estado: string, barcoId: string|null }>>} Tablero inicial con todas las casillas vacías y sin barcos
+ */ 
 export function crearTablero() {
   const tablero = [];
 
@@ -20,8 +24,16 @@ export function crearTablero() {
   return tablero;
 }
 
+/**
+ * Registra un disparo en la casilla [f, c] y actualiza su estado (agua, impacto o hundido)
+ *
+ * @param {Array<Array<object>>} tablero matriz 10x10 del tablero que recibe el disparo
+ * @param {Array<object>} barcos lista de barcos colocados en ese tablero
+ * @param {number} f fila donde cae el disparo
+ * @param {number} c columna donde cae el disparo
+ * @returns {{ tipo: string, barcoHundido: object|null }|null} Resultado del disparo (agua, impacto o hundido) y el barco si se hundió, o null si esa casilla ya había sido atacada
+ */
 
-//registra el disparo
 export function recibirDisparo(tablero, barcos, f, c) {
   const celda = tablero[f][c];
 
