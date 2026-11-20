@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FLOTA } from '../Logica/barcos';
+import { ORIENTACIONES } from '../Logica/colocacionBarcos';
 
 export default function TableroJugador({ tablero, barcos=[], ataquesRecibidos, random, onMoverBarco, puedeMover=true }) {
   // 3 a la izquierda, 2 a la derecha
@@ -29,7 +30,8 @@ export default function TableroJugador({ tablero, barcos=[], ataquesRecibidos, r
     if (!barco) return;
 
     const [filaInicio, colInicio] = barco.celdas[0];
-    const nuevaOrientacion = barco.orientacion === 'horizontal' ? 'vertical' : 'horizontal';
+    const idxActual = ORIENTACIONES.indexOf(barco.orientacion);
+    const nuevaOrientacion = ORIENTACIONES[(idxActual + 1) % ORIENTACIONES.length];
     onMoverBarco(seleccionadoId, filaInicio, colInicio, nuevaOrientacion);
   };
 

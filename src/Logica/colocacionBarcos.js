@@ -4,11 +4,16 @@ import { TAMANIO, FLOTA } from './barcos';
 const PASOS = {
   horizontal: { pasoFila: 0, pasoCol: 1 },
   vertical:   { pasoFila: 1, pasoCol: 0 },
+  diagonalDer:  { pasoFila: 1, pasoCol: 1 },   // Baja hacia la derecha (\)
+  diagonalIzq:  { pasoFila: 1, pasoCol: -1 },  // Baja hacia la izquierda (/)
 };
+
+export const ORIENTACIONES = Object.keys(PASOS);
+
 
 //Calcula las coordenadas [fila, col] que ocupara el barco
 export function calcularCeldas(tam, fila, col, orientacion) {
-  const { pasoFila, pasoCol } = PASOS[orientacion];
+  const { pasoFila, pasoCol } = PASOS[orientacion] || PASOS.horizontal;
   return Array.from({ length: tam }, (_, i) => [
     fila + i * pasoFila,
     col + i * pasoCol,
@@ -41,7 +46,7 @@ export function colocarFlotaAleatoria(tablero) {
     let colocado = false;
 
     while (!colocado) {
-      const orientacion = Math.random() < 0.5 ? 'horizontal' : 'vertical';
+      const orientacion = ORIENTACIONES[Math.floor(Math.random() * ORIENTACIONES.length)];
       const fila = Math.floor(Math.random() * TAMANIO);
       const col = Math.floor(Math.random() * TAMANIO);
 

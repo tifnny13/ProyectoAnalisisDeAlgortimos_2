@@ -1,4 +1,5 @@
 import { TAMANIO, FLOTA } from './barcos';
+import { ORIENTACIONES, calcularCeldas } from './colocacionBarcos';
 
 export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones = 1000) {
   const tiempoInicio = performance.now();
@@ -27,14 +28,17 @@ export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones 
       let colocado = false;
       // Intentamos hasta 40 ubicaciones aleatorias por barco para encontrar una válida
       for (let intento = 0; intento < 40; intento++) {
-        const horizontal = Math.random() < 0.5;
-        const fInicio = Math.floor(Math.random() * (horizontal ? TAMANIO : TAMANIO - barco.tam + 1));
-        const cInicio = Math.floor(Math.random() * (horizontal ? TAMANIO - barco.tam + 1 : TAMANIO));
+        const orientacion = ORIENTACIONES[Math.floor(Math.random() * ORIENTACIONES.length)];
+        const fInicio = Math.floor(Math.random() * (orientacion === 'horizontal' ? TAMANIO : TAMANIO - barco.tam + 1));
+        const cInicio = Math.floor(Math.random() * (orientacion === 'horizontal' ? TAMANIO - barco.tam + 1 : TAMANIO));
+        const celdas = calcularCeldas(barco.tam, fInicio, cInicio, orientacion);
 
         let posicionValida = true;
-        for (let i = 0; i < barco.tam; i++) {
-          const f = horizontal ? fInicio : fInicio + i;
-          const c = horizontal ? cInicio + i : cInicio;
+        for (const [f, c] of celdas) {
+          if (f < 0 || f >= TAMANIO || c < 0 || c >= TAMANIO) {
+            posicionValida = false;
+            break;
+          }
           const estadoReal = tableroEstado[f][c];
 
           // No puede superponerse con otro barco simulado, ni caer en agua o barco ya hundido
@@ -45,9 +49,7 @@ export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones 
         }
 
         if (posicionValida) {
-          for (let i = 0; i < barco.tam; i++) {
-            const f = horizontal ? fInicio : fInicio + i;
-            const c = horizontal ? cInicio + i : cInicio;
+          for (const [f, c] of celdas) {
             tableroSimulado[f][c] = true;
           }
           colocado = true;
