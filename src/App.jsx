@@ -77,88 +77,91 @@ export default function App() {
 
   // Turno automático de la IA
   useEffect(() => {
-    if (turno === 'ia' && estadoPartida === 'jugando') {
-      const timer = setTimeout(() => {
-        const { nuevoDisparosIA } = calcularAtaqueIA(disparosIAEnJugador, flotaJugador);
-        
-        let esImpacto = false;
-        let esAgua = false;
-        let filaImpactada = -1;
-        let colImpactada = -1;
+    if (!partidaIniciada || turno !== 'ia' || estadoPartida !== 'jugando') {
+      return;
+    }
 
-        for (let f = 0; f < TAMANIO; f++) {
-          for (let c = 0; c < TAMANIO; c++) {
-            if (disparosIAEnJugador[f][c] === null && nuevoDisparosIA[f][c] === 'impacto') {
-              esImpacto = true;
-              filaImpactada = f;
-              colImpactada = c;
-            }
-            if (disparosIAEnJugador[f][c] === null && nuevoDisparosIA[f][c] === 'agua') {
-              esAgua = true;
-            }
+    const timer = setTimeout(() => {
+      const { nuevoDisparosIA } = calcularAtaqueIA(disparosIAEnJugador, flotaJugador);
+
+      let esImpacto = false;
+      let esAgua = false;
+      let filaImpactada = -1;
+      let colImpactada = -1;
+
+      for (let f = 0; f < TAMANIO; f++) {
+        for (let c = 0; c < TAMANIO; c++) {
+          if (disparosIAEnJugador[f][c] === null && nuevoDisparosIA[f][c] === 'impacto') {
+            esImpacto = true;
+            filaImpactada = f;
+            colImpactada = c;
+          }
+          if (disparosIAEnJugador[f][c] === null && nuevoDisparosIA[f][c] === 'agua') {
+            esAgua = true;
           }
         }
+      }
 
-       // Si la IA acertó, actualizamos el estado de los barcos del jugador
-        if (esImpacto) {
-          setBarcosJugador(prevBarcos =>
-            prevBarcos.map(barco => {
-              // Verificamos si la celda impactada pertenece a este barco
-              const pertenece = barco.celdas.some(
-                c => (c.fila ?? c[0]) === filaImpactada && (c.col ?? c[1]) === colImpactada
-              );
+      // Si la IA acertó, actualizamos el estado de los barcos del jugador
+      if (esImpacto) {
+        setBarcosJugador(prevBarcos =>
+          prevBarcos.map(barco => {
+            // Verificamos si la celda impactada pertenece a este barco
+            const pertenece = barco.celdas.some(
+              c => (c.fila ?? c[0]) === filaImpactada && (c.col ?? c[1]) === colImpactada
+            );
 
-              if (!pertenece) return barco;
+            if (!pertenece) return barco;
 
-              // Actualizamos las celdas del barco marcando la impactada
-              const celdasActualizadas = barco.celdas.map(c => {
-                const fC = c.fila ?? c[0];
-                const cC = c.col ?? c[1];
-                const esEstaCelda = fC === filaImpactada && cC === colImpactada;
-                return {
-                  ...c,
-                  impactado: c.impactado || esEstaCelda
-                };
-              });
-
-              // Comprobamos si TODAS las celdas de este barco están impactadas
-              // O validamos cruzando directamente con la matriz de ataques de la IA
-              const estaHundido = celdasActualizadas.every(c => {
-                if (c.impactado) return true;
-                const fC = c.fila ?? c[0];
-                const cC = c.col ?? c[1];
-                return nuevoDisparosIA[fC][cC] === 'impacto';
-              });
-
+            // Actualizamos las celdas del barco marcando la impactada
+            const celdasActualizadas = barco.celdas.map(c => {
+              const fC = c.fila ?? c[0];
+              const cC = c.col ?? c[1];
+              const esEstaCelda = fC === filaImpactada && cC === colImpactada;
               return {
-                ...barco,
-                celdas: celdasActualizadas,
-                hundido: estaHundido
+                ...c,
+                impactado: c.impactado || esEstaCelda
               };
-            })
-          );
-        }
+            });
 
-        setDisparosIAEnJugador(nuevoDisparosIA);
-        setEstadisticas(prev => ({
-          ...prev,
-          disparosIA: prev.disparosIA + 1,
-          impactosIA: esImpacto ? prev.impactosIA + 1 : prev.impactosIA,
-          fallidosIA: esAgua ? prev.fallidosIA + 1 : prev.fallidosIA,
-        }));
+            // Comprobamos si TODAS las celdas de este barco están impactadas
+            // O validamos cruzando directamente con la matriz de ataques de la IA
+            const estaHundido = celdasActualizadas.every(c => {
+              if (c.impactado) return true;
+              const fC = c.fila ?? c[0];
+              const cC = c.col ?? c[1];
+              return nuevoDisparosIA[fC][cC] === 'impacto';
+            });
 
-        if (verificarVictoria(nuevoDisparosIA, flotaJugador)) {
-          setEstadoPartida('victoria_ia');
-        } else {
-          setTurno('jugador');
-        }
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [turno, estadoPartida, disparosIAEnJugador, flotaJugador]);
+            return {
+              ...barco,
+              celdas: celdasActualizadas,
+              hundido: estaHundido
+            };
+          })
+        );
+      }
+
+      setDisparosIAEnJugador(nuevoDisparosIA);
+      setEstadisticas(prev => ({
+        ...prev,
+        disparosIA: prev.disparosIA + 1,
+        impactosIA: esImpacto ? prev.impactosIA + 1 : prev.impactosIA,
+        fallidosIA: esAgua ? prev.fallidosIA + 1 : prev.fallidosIA,
+      }));
+
+      if (verificarVictoria(nuevoDisparosIA, flotaJugador)) {
+        setEstadoPartida('victoria_ia');
+      } else {
+        setTurno('jugador');
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [partidaIniciada, turno, estadoPartida, disparosIAEnJugador, flotaJugador]);
 
   const handleDispararJugador = (nuevoTableroEnemigo, juegoTerminadoEnemigo, resultado) => {
-    setPartidaIniciada(true);
+    if (!partidaIniciada) return;
     const esImpacto = resultado === 'impacto' || resultado === 'hundido';
     const esAgua = resultado === 'agua';
 
@@ -255,21 +258,37 @@ export default function App() {
               flotaSecreta={flotaEnemigaOculta} 
               onReiniciar={reiniciarJuegoCompleto}
               onReiniciarPartida={reiniciarPartida}
-              turnoJugador={turno === 'jugador' && estadoPartida === 'jugando'}
+              turnoJugador={partidaIniciada && turno === 'jugador' && estadoPartida === 'jugando'}
+              partidaIniciada={partidaIniciada}
+              numSimulaciones={numSimulaciones}
               onDispararRealizado={handleDispararJugador}
             />
           )}
         </div>
       </div>
 
+      {!partidaIniciada && estadoPartida === 'jugando' && (
+        <div style={{ textAlign: 'center', marginTop: '16px', color: '#cbd5e1' }}>
+          Acomoda o rota tu flota si deseas y presiona <b>Iniciar Partida</b> para comenzar a atacar.
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', marginTop: '24px', marginBottom: '20px' }}>
+        {!partidaIniciada && estadoPartida === 'jugando' && (
+          <button
+            className="btn-sim"
+            onClick={() => setPartidaIniciada(true)}
+            style={{ backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold' }}
+          >
+            Iniciar Partida
+          </button>
+        )}
         <button className="btn-sim" onClick={reiniciarJuegoCompleto}>
           Generar Nueva Partida
         </button>
         <button className="btn-sim" onClick={reiniciarPartida}>
           Reiniciar Partida
         </button>
-
       </div>
     </div>
   );
