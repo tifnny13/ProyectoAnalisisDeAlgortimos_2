@@ -3,7 +3,21 @@ import { TAMANIO } from '../Logica/barcos';
 import { ejecutarSimulacionProbabilistica } from '../Logica/algoritmoProbabilistico';
 import { verificarVictoria } from '../Logica/juego';
 
-export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador, onDispararRealizado }) {
+/**
+ * Muestra el tablero enemigo con el mapa de calor de probabilidades,
+ * permite disparar a las casillas y muestra la recomendación de la simulación
+ *
+ * @param {object} props propiedades del componente.
+ * @param {Array<Array<object>>} props.flotaSecreta matriz 10x10 con los barcos ocultos de la IA
+ * @param {Function} props.onReiniciar función para empezar una partida nueva desde cero
+ * @param {Function} [props.onReiniciarPartida] función opcional para reiniciar el estado de la partida
+ * @param {boolean} props.turnoJugador indica si le toca disparar al jugador o esperar a la IA
+ * @param {boolean} [props.partidaIniciada=false] indica si la partida ya comenzó (bloquea disparos antes de iniciar)
+ * @param {number} [props.numSimulaciones=1000] cantidad de simulaciones Monte Carlo que se ejecutan en cada turno
+ * @param {Function} [props.onCambiarSimulaciones] función opcional para cambiar la cantidad de simulaciones (100, 1000, 5000, 10000)
+ * @param {Function} [props.onDispararRealizado] callback que avisa a App.jsx después de disparar para pasar el turno o marcar victoria
+ */
+export default function TableroEnemigo({ flotaSecreta, onReiniciar, onReiniciarPartida, turnoJugador, partidaIniciada = false, numSimulaciones= 1000, onDispararRealizado }) {
   const [tableroEstado, setTableroEstado] = useState(
     Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null))
   );
@@ -18,37 +32,72 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
     setJuegoTerminado(false);
   }, [flotaSecreta]);
 
-  // Recalcular probabilidades cada vez que cambia el tablero o el estado de la partida
+  // Recalcular probabilidades cada vez que cambia el tablero, el número de simulaciones o el estado de la partida
   useEffect(() => {
     if (tableroEstado.length > 0 && !juegoTerminado) {
       calcularProbabilidades();
     }
-  }, [tableroEstado, juegoTerminado]);
+  }, [tableroEstado, numSimulaciones, juegoTerminado]);
 
   const calcularProbabilidades = () => {
     setCargando(true);
     setTimeout(() => {
-      const resultado = ejecutarSimulacionProbabilistica(tableroEstado);
+      const resultado = ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones);
       setResultadoAlgoritmo(resultado);
       setCargando(false);
     }, 10);
   };
 
+  /**
+   * Procesa el disparo del jugador en la casilla [fila, col], revisa si hundió un barco
+   * y verifica si con ese tiro se ganó la partida
+   *
+   * @param {number} fila fila atacada (0 a 9)
+   * @param {number} col columna atacada (0 a 9)
+   */
   const handleDisparar = (fila, col) => {
     // Validar si es el turno del jugador, si el juego terminó o si la celda ya fue atacada
-    if (!turnoJugador || juegoTerminado || tableroEstado[fila][col] !== null) return;
+    if (!partidaIniciada || !turnoJugador || juegoTerminado || tableroEstado[fila][col] !== null) return;
 
-    const hayBarco = flotaSecreta[fila][col].barcoId !== null;
+    const barcoId = flotaSecreta[fila][col].barcoId;
+    const hayBarco = barcoId !== null;
     const resultadoDisparo = hayBarco ? 'impacto' : 'agua';
 
-    const nuevoTablero = tableroEstado.map((f, fIdx) =>
+    let nuevoTablero = tableroEstado.map((f, fIdx) => // Actualizar la celda disparada
       f.map((c, cIdx) => {
-        if (fIdx === fila && cIdx === col) {
+        if (fIdx === fila && cIdx === col) { // Marcar la celda disparada con el resultado
           return resultadoDisparo;
         }
         return c;
       })
     );
+
+    // Lógica para detectar si el barco completo fue hundido
+    if (hayBarco) {
+      const celdasBarco = [];
+      for (let f = 0; f < TAMANIO; f++) {
+        for (let c = 0; c < TAMANIO; c++) {
+          if (flotaSecreta[f][c].barcoId === barcoId) {
+            celdasBarco.push({ fila: f, col: c });
+          }
+        }
+      }
+
+      const barcoHundido = celdasBarco.every(
+        (celda) => nuevoTablero[celda.fila][celda.col] === 'impacto'
+      );
+
+      if (barcoHundido) {
+        nuevoTablero = nuevoTablero.map((f, fIdx) =>
+          f.map((c, cIdx) => {
+            const perteneceAlBarco = celdasBarco.some(
+              (celda) => celda.fila === fIdx && celda.col === cIdx
+            );
+            return perteneceAlBarco ? 'hundido' : c;
+          })
+        );
+      }
+    }
 
     setTableroEstado(nuevoTablero);
 
@@ -60,12 +109,12 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
 
     // Notificar a App.jsx para que active el turno de la IA
     if (onDispararRealizado) {
-      onDispararRealizado(nuevoTablero, ganado);
+      onDispararRealizado(nuevoTablero, ganado, resultadoDisparo);
     }
   };
 
   const usarRecomendacion = () => {
-    if (turnoJugador && resultadoAlgoritmo && resultadoAlgoritmo.mejorCelda && !juegoTerminado) {
+    if (partidaIniciada && turnoJugador && resultadoAlgoritmo && resultadoAlgoritmo.mejorCelda && !juegoTerminado) {
       const { fila, col } = resultadoAlgoritmo.mejorCelda;
       handleDisparar(fila, col);
     }
@@ -78,7 +127,7 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
           <h2 style={{ margin: '0 0 8px 0' }}>¡VICTORIA!</h2>
           <p style={{ margin: '0 0 12px 0' }}>¡Has hundido toda la flota enemiga con éxito!</p>
           <button className="btn-recomendar" onClick={onReiniciar}>
-            Reiniciar Partida
+            Generar Nueva Partida
           </button>
         </div>
       ) : (
@@ -93,14 +142,11 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
               ({(resultadoAlgoritmo.mejorCelda.prob * 100).toFixed(1)}%)
             </div>
             <div className="txt-secundario">
-              Tiempo: {resultadoAlgoritmo.tiempoEjecucion.toFixed(2)} ms
+              Tiempo: {resultadoAlgoritmo.tiempoEjecucion.toFixed(2)} ms | Configuraciones válidas: {resultadoAlgoritmo.configuracionesValidas} / {numSimulaciones}
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
-              <button className="btn-recomendar" onClick={usarRecomendacion} disabled={!turnoJugador}>
+              <button className="btn-recomendar" onClick={usarRecomendacion} disabled={!partidaIniciada || !turnoJugador}>
                 Disparar a Recomendación
-              </button>
-              <button className="btn-sim" onClick={onReiniciar}>
-                Reiniciar Flota
               </button>
             </div>
           </div>
@@ -123,18 +169,27 @@ export default function TableroEnemigo({ flotaSecreta, onReiniciar, turnoJugador
                 resultadoAlgoritmo.mejorCelda.fila === fIdx &&
                 resultadoAlgoritmo.mejorCelda.col === cIdx;
 
+              let clasesCelda = 'celda celda-enemigo';
+              if (esRecomendada) clasesCelda += ' celda-recomendada';
+              if (estadoCelda === 'hundido') clasesCelda += ' celda-hundido';
+
               const fondoDinamico =
                 estadoCelda === 'agua'
                   ? '#64748b'
                   : estadoCelda === 'impacto'
                   ? '#ef4444'
+                  : estadoCelda === 'hundido'
+                  ? '#991b1b'
                   : `rgba(239, 68, 68, ${Math.max(prob * 0.9, 0.05)})`;
 
               return (
                 <div
                   key={`${fIdx}-${cIdx}`}
-                  className={`celda celda-enemigo ${esRecomendada ? 'celda-recomendada' : ''}`}
-                  style={{ backgroundColor: fondoDinamico, cursor: (!turnoJugador || juegoTerminado) ? 'not-allowed' : 'pointer' }}
+                  className={clasesCelda}
+                  style={{
+                    backgroundColor: fondoDinamico,
+                    cursor: (!partidaIniciada || !turnoJugador || juegoTerminado) ? 'not-allowed' : 'pointer'
+                  }}
                   onClick={() => handleDisparar(fIdx, cIdx)}
                   title={`Probabilidad: ${(prob * 100).toFixed(1)}%`}
                 >

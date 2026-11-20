@@ -391,3 +391,16 @@ body {
   flex-direction: column;
   justify-content: space-between;
 }
+
+.celda.celda-hundido {
+  background-color: #991b1b !important; /* Rojo oscuro o vino */
+  color: #fca5a5 !important;
+  border: 1px dashed #f87171;
+}
+
+/* Forzar color de barco hundido con la máxima prioridad */
+.tarjeta-jugador .celda.celda-hundido {
+  background-color: #7f1d1d !important;
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+}

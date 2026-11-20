@@ -11,6 +11,7 @@ import './App.css';
 export default function App() {
   const [flotaJugador, setFlotaJugador] = useState([]);
   const [flotaEnemigaOculta, setFlotaEnemigaOculta] = useState([]);
+  const [numSimulaciones, setNumSimulaciones] = useState(1000);
 
   const [disparosIAEnJugador, setDisparosIAEnJugador] = useState(
     Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null))
@@ -21,15 +22,27 @@ export default function App() {
   const [barcosJugador, setBarcosJugador] = useState([]);
   const [partidaIniciada, setPartidaIniciada] = useState(false);
 
+  // Estadísticas ampliadas según la Sección 9 del documento oficial
+  const [estadisticas, setEstadisticas] = useState({
+    disparosJugador: 0,
+    impactosJugador: 0,
+    fallidosJugador: 0,
+    disparosIA: 0,
+    impactosIA: 0,
+    fallidosIA: 0,
+  });
+  
+  const [historialIA, setHistorialIA] = useState([]);
+
   useEffect(() => {
     reiniciarJuegoCompleto();
   }, []);
 
   const reiniciarJuegoCompleto = () => {
     const nuevoJugador = crearTablero();
-    const listaBarcos = colocarFlotaAleatoria(nuevoJugador);
+    const listaBarcosJugador = colocarFlotaAleatoria(nuevoJugador);
     setFlotaJugador(nuevoJugador);
-    setBarcosJugador(listaBarcos);
+    setBarcosJugador(listaBarcosJugador);
 
     const nuevoEnemigo = crearTablero();
     colocarFlotaAleatoria(nuevoEnemigo);
@@ -39,28 +52,134 @@ export default function App() {
     setTurno('jugador');
     setEstadoPartida('jugando');
     setPartidaIniciada(false);
+    setEstadisticas({
+      disparosJugador: 0,
+      impactosJugador: 0,
+      fallidosJugador: 0,
+      disparosIA: 0,
+      impactosIA: 0,
+      fallidosIA: 0,
+    });
+    setHistorialIA([]);
+  };
+
+  const [reinicios, setReinicios] = useState(0); //esto reinicia el juego, pero no reinicia laos datos del juego, solo reinicia el tablero y la flota.
+
+  const reiniciarPartida = () => {
+    setBarcosJugador(prev => prev.map(b => ({ ...b, hundido: false })));
+    setDisparosIAEnJugador(Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(null)));
+    setTurno('jugador');
+    setEstadoPartida('jugando');
+    setPartidaIniciada(false);
+    setEstadisticas({
+      disparosJugador: 0, impactosJugador: 0, fallidosJugador: 0,
+      disparosIA: 0, impactosIA: 0, fallidosIA: 0,
+    });
+    setHistorialIA([]);
+    setReinicios(r => r + 1);
   };
 
   // Turno automático de la IA
   useEffect(() => {
-    if (turno === 'ia' && estadoPartida === 'jugando') {
-      const timer = setTimeout(() => {
-        const { nuevoDisparosIA } = calcularAtaqueIA(disparosIAEnJugador, flotaJugador);
-        
-        setDisparosIAEnJugador(nuevoDisparosIA);
-
-        if (verificarVictoria(nuevoDisparosIA, flotaJugador)) {
-          setEstadoPartida('victoria_ia');
-        } else {
-          setTurno('jugador');
-        }
-      }, 800);
-      return () => clearTimeout(timer);
+    if (!partidaIniciada || turno !== 'ia' || estadoPartida !== 'jugando') {
+      return;
     }
-  }, [turno, estadoPartida]);
 
-  const handleDisparoJugador = (nuevoTableroEnemigo, juegoTerminadoEnemigo) => {
-    setPartidaIniciada(true);
+    const timer = setTimeout(() => {
+      const { nuevoDisparosIA, decision } = calcularAtaqueIA(disparosIAEnJugador, flotaJugador, numSimulaciones);
+
+      let esImpacto = false;
+      let esAgua = false;
+      let filaImpactada = -1;
+      let colImpactada = -1;
+
+      for (let f = 0; f < TAMANIO; f++) {
+        for (let c = 0; c < TAMANIO; c++) {
+          if (disparosIAEnJugador[f][c] === null && nuevoDisparosIA[f][c] === 'impacto') {
+            esImpacto = true;
+            filaImpactada = f;
+            colImpactada = c;
+          }
+          if (disparosIAEnJugador[f][c] === null && nuevoDisparosIA[f][c] === 'agua') {
+            esAgua = true;
+          }
+        }
+      }
+
+      // Si la IA acertó, actualizamos el estado de los barcos del jugador
+      if (esImpacto) {
+        setBarcosJugador(prevBarcos =>
+          prevBarcos.map(barco => {
+            // Verificamos si la celda impactada pertenece a este barco
+            const pertenece = barco.celdas.some(
+              c => (c.fila ?? c[0]) === filaImpactada && (c.col ?? c[1]) === colImpactada
+            );
+
+            if (!pertenece) return barco;
+
+            // Actualizamos las celdas del barco marcando la impactada
+            const celdasActualizadas = barco.celdas.map(c => {
+              const fC = c.fila ?? c[0];
+              const cC = c.col ?? c[1];
+              const esEstaCelda = fC === filaImpactada && cC === colImpactada;
+              return {
+                ...c,
+                impactado: c.impactado || esEstaCelda
+              };
+            });
+
+            // Comprobamos si TODAS las celdas de este barco están impactadas
+            // O validamos cruzando directamente con la matriz de ataques de la IA
+            const estaHundido = celdasActualizadas.every(c => {
+              if (c.impactado) return true;
+              const fC = c.fila ?? c[0];
+              const cC = c.col ?? c[1];
+              return nuevoDisparosIA[fC][cC] === 'impacto';
+            });
+
+            return {
+              ...barco,
+              celdas: celdasActualizadas,
+              hundido: estaHundido
+            };
+          })
+        );
+      }
+
+      setDisparosIAEnJugador(nuevoDisparosIA);
+      setHistorialIA(prev => [
+        { turno: prev.length + 1, ...decision },
+        ...prev
+      ]);
+      setEstadisticas(prev => ({
+        ...prev,
+        disparosIA: prev.disparosIA + 1,
+        impactosIA: esImpacto ? prev.impactosIA + 1 : prev.impactosIA,
+        fallidosIA: esAgua ? prev.fallidosIA + 1 : prev.fallidosIA,
+      }));
+
+      if (verificarVictoria(nuevoDisparosIA, flotaJugador)) {
+        setEstadoPartida('victoria_ia');
+      } else {
+        setTurno('jugador');
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [partidaIniciada, turno, estadoPartida, disparosIAEnJugador, flotaJugador]);
+
+  const handleDispararJugador = (nuevoTableroEnemigo, juegoTerminadoEnemigo, resultado) => {
+    if (!partidaIniciada) return;
+    const esImpacto = resultado === 'impacto' || resultado === 'hundido';
+    const esAgua = resultado === 'agua';
+
+    setEstadisticas(prev => ({
+      ...prev,
+      disparosJugador: prev.disparosJugador + 1,
+      impactosJugador: esImpacto ? prev.impactosJugador + 1 : prev.impactosJugador,
+      fallidosJugador: esAgua ? prev.fallidosJugador + 1 : prev.fallidosJugador,
+    }));
+
     if (juegoTerminadoEnemigo) {
       setEstadoPartida('victoria_jugador');
     } else {
@@ -69,20 +188,55 @@ export default function App() {
   };
 
   const manejarMoverBarco = (barcoId, nuevaFila, nuevaCol, nuevaOrientacion) => {
-  if (partidaIniciada) return;
+    if (partidaIniciada) return;
 
-  const copiaTablero = flotaJugador.map(fila => fila.map(celda => ({ ...celda })));
-  const copiaBarcos = barcosJugador.map(b => ({ ...b, celdas: [...b.celdas] }));
+    const copiaTablero = flotaJugador.map(fila => fila.map(celda => ({ ...celda })));
+    const copiaBarcos = barcosJugador.map(b => ({ ...b, celdas: [...b.celdas] }));
 
-  if (moverBarco(copiaTablero, copiaBarcos, barcoId, nuevaFila, nuevaCol, nuevaOrientacion)) {
-    setFlotaJugador(copiaTablero);
-    setBarcosJugador(copiaBarcos);
-  }
-};
+    if (moverBarco(copiaTablero, copiaBarcos, barcoId, nuevaFila, nuevaCol, nuevaOrientacion)) {
+      setFlotaJugador(copiaTablero);
+      setBarcosJugador(copiaBarcos);
+    }
+  };
+
+  const barcosVivosJugador = barcosJugador.filter(b => !b.hundido).length;
+  const barcosHundidosJugador = barcosJugador.filter(b => b.hundido).length;
 
   return (
     <div className="pantalla">
-      <h1 className="titulo">⚓ Batalla Naval Probabilística ⚓</h1>
+      <h1 className="titulo">Batalla Naval Probabilística</h1>
+
+      {/* Panel completo de estadísticas (Sección 9) */}
+      <div style={{
+        backgroundColor: '#1e2636',
+        border: '1px solid #334155',
+        borderRadius: '14px',
+        padding: '16px 24px',
+        marginBottom: '20px',
+        width: '100%',
+        maxWidth: '1180px',
+        boxSizing: 'border-box',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: '12px',
+        fontSize: '13px'
+      }}>
+        <div><b>Disparos Jugador:</b> <span style={{ color: '#38bdf8' }}>{estadisticas.disparosJugador}</span> (Aciertos: {estadisticas.impactosJugador} | Fallidos: {estadisticas.fallidosJugador})</div>
+        <div><b>Disparos IA:</b> <span style={{ color: '#ef4444' }}>{estadisticas.disparosIA}</span> (Aciertos: {estadisticas.impactosIA} | Fallidos: {estadisticas.fallidosIA})</div>
+        <div><b>Tus Barcos:</b> Vivos: <span style={{ color: '#22c55e' }}>{barcosVivosJugador}</span> | Hundidos: <span style={{ color: '#ef4444' }}>{barcosHundidosJugador}</span></div>
+        <div>
+          <b>Simulaciones: </b>
+          <select 
+            value={numSimulaciones} 
+            onChange={(e) => setNumSimulaciones(Number(e.target.value))}
+            style={{ background: '#0f172a', color: '#fff', border: '1px solid #475569', borderRadius: '6px', padding: '2px 6px' }}>
+            <option value={100}>100</option>
+            <option value={1000}>1 000</option>
+            <option value={5000}>5 000</option>
+            <option value={10000}>10 000</option>
+          </select>
+        </div>
+      </div>
 
       <div className="indicador-turno" style={{ textAlign: 'center', marginBottom: '20px', fontSize: '1.2rem', fontWeight: 'bold' }}>
         {estadoPartida === 'victoria_jugador' && <span style={{ color: '#22c55e' }}>¡VICTORIA! Has derrotado a la IA.</span>}
@@ -92,7 +246,7 @@ export default function App() {
         )}
       </div>
 
-        <div className="contenedor-tableros">
+      <div className="contenedor-tableros">
         {flotaJugador.length > 0 && (
           <TableroJugador 
             tablero={flotaJugador} 
@@ -104,17 +258,73 @@ export default function App() {
           />
         )}
 
-       <div className="tarjeta-enemigo">
+        <div className="tarjeta-enemigo">
           <h2 className="subtitulo-panel">Tablero Enemigo</h2>
           {flotaEnemigaOculta.length > 0 && (
             <TableroEnemigo 
+              key={reinicios}
               flotaSecreta={flotaEnemigaOculta} 
               onReiniciar={reiniciarJuegoCompleto}
-              turnoJugador={turno === 'jugador' && estadoPartida === 'jugando'}
-              onDispararRealizado={handleDisparoJugador}
+              onReiniciarPartida={reiniciarPartida}
+              turnoJugador={partidaIniciada && turno === 'jugador' && estadoPartida === 'jugando'}
+              partidaIniciada={partidaIniciada}
+              numSimulaciones={numSimulaciones}
+              onDispararRealizado={handleDispararJugador}
             />
           )}
         </div>
+      </div>
+
+      <div style={{
+        backgroundColor: '#1e2636',
+        border: '1px solid #334155',
+        borderRadius: '14px',
+        padding: '14px 20px',
+        margin: '18px auto 0 auto',
+        width: '100%',
+        maxWidth: '1180px',
+        boxSizing: 'border-box',
+        fontSize: '13px'
+      }}>
+        <b>Historial de decisiones del agente (IA):</b>
+        {historialIA.length === 0 ? (
+          <div style={{ color: '#94a3b8', marginTop: '6px' }}>Aún no hay ataques registrados por el agente.</div>
+        ) : (
+          <div style={{ maxHeight: '110px', overflowY: 'auto', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {historialIA.map((item) => (
+              <div key={item.turno} style={{ color: '#e2e8f0' }}>
+                <b>Turno #{item.turno}:</b> Atacó <b>{item.coordenada}</b> (Prob: {item.probabilidad}%, Configs. válidas: {item.configuracionesValidas}, Tiempo: {item.tiempo} ms) →{' '}
+                <span style={{ color: item.resultado === 'impacto' ? '#ef4444' : '#94a3b8', fontWeight: 'bold' }}>
+                  {item.resultado.toUpperCase()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {!partidaIniciada && estadoPartida === 'jugando' && (
+        <div style={{ textAlign: 'center', marginTop: '16px', color: '#cbd5e1' }}>
+          Acomoda o rota tu flota si deseas y presiona <b>Iniciar Partida</b> para comenzar a atacar.
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', marginTop: '24px', marginBottom: '20px' }}>
+        {!partidaIniciada && estadoPartida === 'jugando' && (
+          <button
+            className="btn-sim"
+            onClick={() => setPartidaIniciada(true)}
+            style={{ backgroundColor: '#2563eb', color: '#fff', fontWeight: 'bold' }}
+          >
+            Iniciar Partida
+          </button>
+        )}
+        <button className="btn-sim" onClick={reiniciarJuegoCompleto}>
+          Generar Nueva Partida
+        </button>
+        <button className="btn-sim" onClick={reiniciarPartida}>
+          Reiniciar Partida
+        </button>
       </div>
     </div>
   );

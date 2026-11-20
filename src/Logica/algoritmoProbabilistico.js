@@ -1,134 +1,133 @@
 import { TAMANIO, FLOTA } from './barcos';
-
-export function ejecutarSimulacionProbabilistica(tableroEstado) {
+import { ORIENTACIONES, calcularCeldas } from './colocacionBarcos';
+/**
+ * Corre la simulación de Monte Carlo para calcular qué tan probable es que haya un barco en cada casilla
+ * Prueba un montón de tableros aleatorios respetando los tiros que ya se hicieron (agua, impactos y hundidos)
+ * y se queda con la casilla libre que más veces salió ocupada
+ *
+ * @param {Array<Array<string|null>>} tableroEstado - Matriz 10x10 con lo que se ve en el tablero enemigo
+ * @param {number} [numSimulaciones=1000] - Cuántas veces se repite la simulación (100, 1000, 5000 o 10000)
+ * @returns {object} Devuelve la matriz de probabilidades, cuántas configuraciones sirvieron, cuánto tardó y la mejor casilla para disparar.
+ */
+export function ejecutarSimulacionProbabilistica(tableroEstado, numSimulaciones = 1000) {
   const tiempoInicio = performance.now();
-  const matrizProbabilidades = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(0));
-  
-  // 1. MODO DESTRUCCIÓN (Target Mode): Si hay un impacto activo, priorizamos celdas adyacentes
-  const celdasAdyacentes = [];
+  const matrizConteo = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(0)); // contador de cuantas veces cada celda fue ocupada en configuraciones válidas
+  const matrizProbabilidades = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(0));// matriz final de probabilidades para cada celda
+
+  // Identificar celdas con impacto activo (que aún no pertenecen a un barco hundido)
+  const impactosActivos = [];
   for (let f = 0; f < TAMANIO; f++) {
     for (let c = 0; c < TAMANIO; c++) {
       if (tableroEstado[f][c] === 'impacto') {
-        const vecinos = [
-          { fila: f - 1, col: c },
-          { fila: f + 1, col: c },
-          { fila: f, col: c - 1 },
-          { fila: f, col: c + 1 }
-        ];
-        for (const v of vecinos) {
-          if (v.fila >= 0 && v.fila < TAMANIO && v.col >= 0 && v.col < TAMANIO) {
-            if (tableroEstado[v.fila][v.col] === null) {
-              if (!celdasAdyacentes.some(cell => cell.fila === v.fila && cell.col === v.col)) {
-                celdasAdyacentes.push(v);
-              }
-            }
+        impactosActivos.push(`${f},${c}`);
+      }
+    }
+  }
+
+  let configuracionesValidas = 0;
+
+  // Ejecutar N simulaciones (100, 1000, 5000, 10000)
+  for (let sim = 0; sim < numSimulaciones; sim++) {
+    const tableroSimulado = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(false)); // marca si hay un barco en esa celda en la simulación actual
+    let flotaValida = true;
+
+    // Intentar colocar los 5 barcos sin superposición y respetando agua/hundidos
+    for (const barco of FLOTA) {
+      let colocado = false;
+      // Intentamos hasta 40 ubicaciones aleatorias por barco para encontrar una válida
+      for (let intento = 0; intento < 40; intento++) {
+        const orientacion = ORIENTACIONES[Math.floor(Math.random() * ORIENTACIONES.length)];
+        const fInicio = Math.floor(Math.random() * (orientacion === 'horizontal' ? TAMANIO : TAMANIO - barco.tam + 1));
+        const cInicio = Math.floor(Math.random() * (orientacion === 'horizontal' ? TAMANIO - barco.tam + 1 : TAMANIO));
+        const celdas = calcularCeldas(barco.tam, fInicio, cInicio, orientacion);
+
+        let posicionValida = true;
+        for (const [f, c] of celdas) {
+          if (f < 0 || f >= TAMANIO || c < 0 || c >= TAMANIO) {
+            posicionValida = false;
+            break;
+          }
+          const estadoReal = tableroEstado[f][c];
+
+          // No puede superponerse con otro barco simulado, ni caer en agua o barco ya hundido
+          if (tableroSimulado[f][c] || estadoReal === 'agua' || estadoReal === 'hundido') {
+            posicionValida = false;
+            break;
+          }
+        }
+
+        if (posicionValida) {
+          for (const [f, c] of celdas) {
+            tableroSimulado[f][c] = true;
+          }
+          colocado = true;
+          break;
+        }
+      }
+
+      if (!colocado) {
+        flotaValida = false;
+        break;
+      }
+    }
+
+    // Verificar que la configuración generada cubra todos los impactos activos que ya estan conocidos
+    if (flotaValida && impactosActivos.length > 0) {
+      for (const coord of impactosActivos) {
+        const [f, c] = coord.split(',').map(Number);
+        if (!tableroSimulado[f][c]) {
+          flotaValida = false;
+          break;
+        }
+      }
+    }
+
+    // Si la configuración completa pasó todas las reglas la guardamos y contamos las celdas ocupadas
+    if (flotaValida) {
+      configuracionesValidas++;
+      for (let f = 0; f < TAMANIO; f++) {
+        for (let c = 0; c < TAMANIO; c++) {
+          if (tableroSimulado[f][c]) {
+            matrizConteo[f][c]++;
           }
         }
       }
     }
   }
 
+  // Calcular las configuraciones válidas con barco en c / Total configuraciones válidas
   let mejorCelda = { fila: 0, col: 0, prob: -1 };
+  const celdasLibres = [];
 
-  if (celdasAdyacentes.length > 0) {
-    // Si hay impactos, atacamos directamente a los vecinos con máxima prioridad
-    const objetivo = celdasAdyacentes[Math.floor(Math.random() * celdasAdyacentes.length)];
-    matrizProbabilidades[objetivo.fila][objetivo.col] = 1.0;
-    mejorCelda = { fila: objetivo.fila, col: objetivo.col, prob: 1.0 };
-  } else {
-    // 2. MODO CAZA (Hunt Mode): Conteo basado en los tamaños de los barcos de FLOTA
-    const conteo = Array.from({ length: TAMANIO }, () => Array(TAMANIO).fill(0));
+  for (let f = 0; f < TAMANIO; f++) {
+    for (let c = 0; c < TAMANIO; c++) {
+      const estado = tableroEstado[f][c];
+      const yaAtacada = estado === 'agua' || estado === 'impacto' || estado === 'hundido';
 
-    for (const barco of FLOTA) {
-      const tam = barco.tam; // Usamos la propiedad 'tam' de cada barco de barcos.js
+      if (!yaAtacada) {
+        celdasLibres.push({ fila: f, col: c });
+        const prob = configuracionesValidas > 0 ? matrizConteo[f][c] / configuracionesValidas : 0;
+        matrizProbabilidades[f][c] = prob;
 
-      // Probar todas las posiciones posibles en horizontal
-      for (let f = 0; f < TAMANIO; f++) {
-        for (let c = 0; c <= TAMANIO - tam; c++) {
-          let cabe = true;
-          for (let i = 0; i < tam; i++) {
-            if (tableroEstado[f][c + i] === 'agua') {
-              cabe = false;
-              break;
-            }
-          }
-          if (cabe) {
-            for (let i = 0; i < tam; i++) {
-              conteo[f][c + i]++;
-            }
-          }
-        }
-      }
-
-      // Probar todas las posiciones posibles en vertical
-      for (let f = 0; f <= TAMANIO - tam; f++) {
-        for (let c = 0; c < TAMANIO; c++) {
-          let cabe = true;
-          for (let i = 0; i < tam; i++) {
-            if (tableroEstado[f + i][c] === 'agua') {
-              cabe = false;
-              break;
-            }
-          }
-          if (cabe) {
-            for (let i = 0; i < tam; i++) {
-              conteo[f + i][c]++;
-            }
-          }
+        if (prob > mejorCelda.prob) {
+          mejorCelda = { fila: f, col: c, prob };
         }
       }
     }
+  }
 
-    // Encontrar el valor máximo para normalizar los porcentajes entre 0 y 1
-    let maxConteo = 0;
-    for (let f = 0; f < TAMANIO; f++) {
-      for (let c = 0; c < TAMANIO; c++) {
-        if (tableroEstado[f][c] === null && conteo[f][c] > maxConteo) {
-          maxConteo = conteo[f][c];
-        }
-      }
-    }
-
-    // Llenar la matriz de probabilidades normalizada y buscar la mejor celda
-    for (let f = 0; f < TAMANIO; f++) {
-      for (let c = 0; c < TAMANIO; c++) {
-        const yaAtacada = tableroEstado[f][c] === 'agua' || tableroEstado[f][c] === 'impacto';
-
-        if (!yaAtacada && maxConteo > 0) {
-          matrizProbabilidades[f][c] = conteo[f][c] / maxConteo;
-        } else {
-          matrizProbabilidades[f][c] = 0;
-        }
-
-        if (!yaAtacada && matrizProbabilidades[f][c] > mejorCelda.prob) {
-          mejorCelda = { fila: f, col: c, prob: matrizProbabilidades[f][c] };
-        }
-      }
-    }
-
-    // Plan de respaldo por si el tablero se llena demasiado
-    if (mejorCelda.prob === -1) {
-      const celdasLibres = [];
-      for (let f = 0; f < TAMANIO; f++) {
-        for (let c = 0; c < TAMANIO; c++) {
-          if (tableroEstado[f][c] === null) {
-            celdasLibres.push({ fila: f, col: c });
-            matrizProbabilidades[f][c] = 0.10;
-          }
-        }
-      }
-      if (celdasLibres.length > 0) {
-        const az = celdasLibres[Math.floor(Math.random() * celdasLibres.length)];
-        mejorCelda = { fila: az.fila, col: az.col, prob: 0.10 };
-      }
-    }
+  // Respaldo si las simulaciones aleatorias no lograron encajar todos los impactos activos
+  if (configuracionesValidas === 0 && celdasLibres.length > 0) {
+    const az = celdasLibres[Math.floor(Math.random() * celdasLibres.length)];
+    mejorCelda = { fila: az.fila, col: az.col, prob: 0.1 };
+    matrizProbabilidades[az.fila][az.col] = 0.1;
   }
 
   const tiempoEjecucion = performance.now() - tiempoInicio;
 
   return {
     matrizProbabilidades,
-    configuracionesValidas: 1,
+    configuracionesValidas,
     tiempoEjecucion,
     mejorCelda,
   };
